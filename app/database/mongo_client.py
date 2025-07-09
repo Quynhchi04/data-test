@@ -9,6 +9,8 @@ from app.schemas.users import UserCreate, UserLogin
 from app.database.redis_client import get_redis_config
 from app.utils.common import serialize_mongo_document, serialize_user
 from app.database.qdrant_client import add_message_vector, delete_conversation_vectors
+from app.database.gcs_client import upload_file_to_gcs
+
 
 api_keys = get_redis_config("api_keys")
 client = MongoClient(api_keys["MONGO_DB_URL"])
@@ -100,6 +102,7 @@ async def save_message(convo_id: str, message: Message, response: str) -> None:
     Save a user message and corresponding assistant response to a conversation.
 
     Args:
+        user_id (str): ID of the user who owns the conversation.
         convo_id (str): ID of the conversation.
         message (Message): Message object from the user.
         response (str): Assistant-generated response.
@@ -129,6 +132,8 @@ async def save_message(convo_id: str, message: Message, response: str) -> None:
         {"_id": ObjectId(convo_id)},
         {"$push": {"messages": {"$each": [msg, bot_reply]}}}
     )
+    
+    upload_file_to_gcs(convo_id, message.image) if message.image else None
     
     # Add message to Qdrant for history tracking
     # Lookup conversation
